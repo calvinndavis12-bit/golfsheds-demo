@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>GolfSheds — AI Concierge Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --black:#0a0a08;--dark:#111110;--mid:#1c1c1a;--surface:#242422;
+  --border:#2e2e2c;--border2:#3a3a38;--muted:#888884;--light:#c8c8c4;
+  --white:#f4f4f0;--cream:#faf8f0;
+  --green:#2d6a4f;--green-light:#52b788;--green-pale:rgba(82,183,136,0.1);
+  --gold:#b8962e;--gold-light:#d4af4a;--gold-pale:rgba(184,150,46,0.1);
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+  --touch:44px;--rlg:16px;--rmd:10px;--rsm:6px;
+  --fd:'Playfair Display',Georgia,serif;
+  --fu:'Inter',system-ui,sans-serif;
+}
+body{font-family:var(--fu);background:var(--cream);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+
+/* Demo page */
+.demo-page{width:100%;max-width:480px;display:flex;flex-direction:column;align-items:center;gap:24px;}
+.demo-header{text-align:center;}
+.demo-logo{font-family:var(--fd);font-size:28px;font-weight:600;color:#1a1a18;letter-spacing:-0.5px;margin-bottom:4px;}
+.demo-logo span{color:var(--green);}
+.demo-tagline{font-size:13px;color:#888;letter-spacing:0.05em;text-transform:uppercase;}
+
+/* Launcher */
+#gs-btn{display:flex;align-items:center;gap:10px;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px 26px;cursor:pointer;font-family:var(--fu);font-size:14px;font-weight:500;box-shadow:0 4px 24px rgba(45,106,79,0.4);transition:transform 0.2s,box-shadow 0.2s;letter-spacing:0.01em;}
+#gs-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(45,106,79,0.5);}
+#gs-btn.open{background:var(--mid);}
+#gs-btn .dot{width:8px;height:8px;background:#52b788;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0;}
+@keyframes teaser-in{from{opacity:0;transform:translateY(10px) scale(0.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+
+/* Veil */
+#gs-veil{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:99998;opacity:0;pointer-events:none;transition:opacity .3s;}
+#gs-veil.on{opacity:1;pointer-events:all;}
+
+/* Panel */
+#gs-box{position:fixed;z-index:99999;display:flex;flex-direction:column;background:var(--dark);border:1px solid var(--border);overflow:hidden;bottom:calc(90px + var(--sab));right:20px;width:390px;height:620px;border-radius:var(--rlg);box-shadow:0 20px 60px rgba(0,0,0,.8);transform:translateY(30px) scale(.96);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.34,1.2,.64,1),opacity .25s;}
+#gs-box.on{transform:translateY(0) scale(1);opacity:1;pointer-events:all;}
+@media(max-width:479px){
+  #gs-box{bottom:0;right:0;left:0;width:100%;height:92dvh;border-radius:var(--rlg) var(--rlg) 0 0;border-bottom:none;transform:translateY(100%);opacity:1;}
+  #gs-box.on{transform:translateY(0);}
+  #gs-btn{bottom:calc(16px + var(--sab));right:16px;}
+}
+
+/* Header */
+#gs-hd{flex-shrink:0;background:var(--black);border-bottom:1px solid var(--border);padding:14px 16px 12px;}
+.gs-hrow{display:flex;align-items:center;gap:12px;}
+.gs-av{width:42px;height:42px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.gs-hi{flex:1;min-width:0;}
+.gs-hn{font-family:var(--fd);font-size:15px;color:var(--white);letter-spacing:.02em;}
+.gs-hs{font-size:11px;color:var(--green-light);display:flex;align-items:center;gap:5px;margin-top:2px;}
+.gs-dot{width:6px;height:6px;background:var(--green-light);border-radius:50%;animation:pulse 2s infinite;}
+#gs-x{width:34px;height:34px;border-radius:50%;background:var(--mid);color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;transition:all .2s;flex-shrink:0;}
+#gs-x:hover{background:var(--border2);color:var(--white);}
+
+/* Messages */
+#gs-msgs{flex:1;overflow-y:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;}
+#gs-msgs::-webkit-scrollbar{width:3px;}
+#gs-msgs::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+@keyframes gs-mi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.gs-msg{display:flex;align-items:flex-end;gap:8px;max-width:92%;animation:gs-mi .25s ease;}
+.gs-msg.b{align-self:flex-start;}
+.gs-msg.u{align-self:flex-end;flex-direction:row-reverse;}
+.gs-mav{width:28px;height:28px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-bottom:2px;}
+.gs-mb{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.55;color:var(--white);}
+.gs-msg.b .gs-mb{background:var(--surface);border-bottom-left-radius:4px;}
+.gs-msg.u .gs-mb{background:var(--green);border-bottom-right-radius:4px;font-weight:500;}
+.gs-tdots{display:flex;gap:4px;padding:8px 4px;align-items:center;}
+@keyframes gs-bn{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
+.gs-tdots span{width:7px;height:7px;border-radius:50%;background:var(--green-light);animation:gs-bn 1.2s ease infinite;}
+.gs-tdots span:nth-child(2){animation-delay:.18s;}.gs-tdots span:nth-child(3){animation-delay:.36s;}
+
+/* Model cards */
+.gs-cards{display:flex;flex-direction:column;gap:10px;max-width:300px;}
+.gs-card{background:var(--mid);border:1px solid var(--border2);border-radius:var(--rmd);overflow:hidden;transition:border-color .2s;}
+.gs-card:hover{border-color:var(--green);}
+.gs-card-img{width:100%;height:90px;background:linear-gradient(135deg,#1a2e1a,#0d1a0d);display:flex;align-items:center;justify-content:center;font-size:32px;}
+.gs-card-body{padding:10px 12px;}
+.gs-card-tag{font-size:10px;font-weight:600;color:var(--green-light);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;}
+.gs-card-name{font-family:var(--fd);font-size:14px;color:var(--white);font-weight:500;margin-bottom:3px;}
+.gs-card-price{font-size:13px;color:var(--gold-light);font-weight:600;margin-bottom:6px;}
+.gs-card-dims{font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.4;}
+.gs-card-btn{width:100%;padding:8px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--fu);transition:background .15s;}
+.gs-card-btn:hover{background:#245a41;}
+.gs-card-btn.requested{background:var(--gold);color:var(--black);}
+
+/* Lead form */
+.gs-lead{background:var(--mid);border:1px solid var(--green);border-radius:var(--rmd);padding:14px;max-width:300px;}
+.gs-lead-title{font-family:var(--fd);font-size:14px;color:var(--white);margin-bottom:4px;}
+.gs-lead-sub{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.45;}
+.gs-lead input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rsm);padding:8px 10px;font-size:13px;color:var(--white);font-family:var(--fu);margin-bottom:8px;outline:none;}
+.gs-lead input:focus{border-color:var(--green-light);}
+.gs-lead input::placeholder{color:var(--muted);}
+.gs-lead-btn{width:100%;padding:9px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--fu);}
+.gs-lead-btn:hover{background:#245a41;}
+
+/* Deal banner */
+.gs-deal{background:linear-gradient(135deg,#0d1f0d,#162416);border:1px solid rgba(82,183,136,.3);border-radius:var(--rmd);padding:12px 14px;max-width:300px;}
+.gs-deal-name{font-family:var(--fd);font-size:14px;color:var(--white);margin-bottom:4px;}
+.gs-deal-desc{font-size:12px;color:var(--light);line-height:1.45;margin-bottom:10px;}
+.gs-deal-btn{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);font-size:12px;font-weight:600;padding:7px 14px;cursor:pointer;font-family:var(--fu);}
+
+/* Chips */
+#gs-cw{flex-shrink:0;padding:6px 14px 8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:var(--green) var(--mid);}
+#gs-ch{display:flex;gap:6px;width:max-content;}
+.gs-chip{white-space:nowrap;padding:8px 14px;border:1px solid var(--border2);border-radius:20px;font-family:var(--fu);font-size:13px;color:var(--light);background:var(--mid);transition:all .15s;min-height:var(--touch);display:flex;align-items:center;cursor:pointer;}
+.gs-chip:hover{border-color:var(--green-light);color:var(--green-light);background:var(--green-pale);}
+
+/* Input */
+#gs-inp-row{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 14px calc(10px + var(--sab));border-top:1px solid var(--border);background:var(--black);}
+#gs-inp{flex:1;height:var(--touch);background:var(--mid);border:1px solid var(--border2);border-radius:22px;padding:0 16px;font-size:16px;color:var(--white);font-family:var(--fu);outline:none;-webkit-appearance:none;}
+#gs-inp::placeholder{color:var(--muted);}
+#gs-inp:focus{border-color:var(--green-light);}
+#gs-send{width:44px;height:44px;border-radius:50%;background:var(--green);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:none;cursor:pointer;transition:filter .15s;}
+#gs-send:hover{filter:brightness(1.15);}
+#gs-send:disabled{opacity:.4;pointer-events:none;}
+#gs-ft{flex-shrink:0;text-align:center;padding:4px 0 6px;font-family:var(--fu);font-size:10px;color:var(--border2);letter-spacing:.05em;background:var(--black);}
+
+/* Quiz progress */
+.gs-qp{display:flex;gap:4px;margin-bottom:4px;}
+.gs-qd{flex:1;height:3px;background:var(--border2);border-radius:2px;transition:background .3s;}
+.gs-qd.done{background:var(--green-light);}
+.gs-qd.active{background:var(--green);}
+</style>
+</head>
+<body>
+
+<div class="demo-page">
+  <div class="demo-header">
+    <div class="demo-logo">Golf<span>Sheds</span></div>
+    <div class="demo-tagline">Your Private Golf Suite — Anywhere</div>
+  </div>
+  <p style="font-size:12px;color:#aaa;text-align:center">Shopflow AI Demo — gocannaflow.com</p>
+</div>
+
+<div class="launcher-wrap" style="position:fixed;bottom:calc(24px + env(safe-area-inset-bottom,0px));right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;z-index:99997;">
+  <div id="teaser" onclick="gsShow()" style="background:#fff;color:#111;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:10px 16px;border-radius:20px 20px 4px 20px;box-shadow:0 4px 20px rgba(0,0,0,0.25);cursor:pointer;max-width:220px;text-align:center;line-height:1.35;animation:teaser-in 0.5s ease 1.2s both;position:relative;">
+    ⛳ Find your perfect simulator setup →
+  </div>
+  <button id="gs-btn" onclick="gsShow()">
+    <span class="dot"></span>
+    Talk to Ace
+  </button>
+</div>
+
+<div id="gs-veil" onclick="gsHide()"></div>
+
+<div id="gs-box">
+  <div id="gs-hd">
+    <div class="gs-hrow">
+      <div class="gs-av">⛳</div>
+      <div class="gs-hi">
+        <div class="gs-hn">Ace</div>
+        <div class="gs-hs"><span class="gs-dot"></span>GolfSheds Advisor</div>
+      </div>
+      <button id="gs-x" onclick="gsHide()">✕</button>
+    </div>
+  </div>
+  <div id="gs-msgs"></div>
+  <div id="gs-cw"><div id="gs-ch"></div></div>
+  <div id="gs-inp-row">
+    <input id="gs-inp" type="text" placeholder="Ask about models, pricing, installation…" autocomplete="off" enterkeyhint="send"/>
+    <button id="gs-send">➤</button>
+  </div>
+  <div id="gs-ft">Powered by Shopflow AI ✦</div>
+</div>
+
+<script>
+const PROXY='https://shopflow-demo-proxy-production.up.railway.app/api/chat';
+const SITE='https://golfsheds.com';
+
+const MODELS=[
+  {id:'xle',name:'XLE Edition',tag:'Most Popular',emoji:'🏌️',price:'Starting at $72,900',dims:'Exterior: 19\'L x 12\'W x 11\'4" | Interior: 14\'L x 11\'W x 10\'H',desc:'Ultra luxury in a compact space. Perfect for residential backyards with limited footprint.',features:['Premium glass & steel frame','High-end turf & hitting green','Panoramic screen','Simulator ready','A/C & heating','Deck & overhang'],url:'/home/#models'},
+  {id:'platinum',name:'Platinum Edition',tag:'Best Value',emoji:'⭐',price:'Starting at $96,900',dims:'Exterior: 24\'L x 16\'W x 11\'4" | Interior: 19\'L x 15\'W x 10\'H',desc:'Spacious and luxurious. The perfect balance of size and value for serious golfers.',features:['All XLE features','Extra space for seating','Rooftop deck available','500+ sq ft'],url:'/home/#models'},
+  {id:'platinumplus',name:'Platinum+ Edition',tag:'Flagship',emoji:'👑',price:'Starting at $109,800',dims:'Exterior: 25\'L x 16\'W x 11\'4" | Interior: 22\'L x 15\'W x 10\'H',desc:'Our largest model. An architectural masterpiece with HSS structural steel and dual-paned glass.',features:['Largest interior space','Custom cabinetry','Waterfall granite countertops','Theater package available','Murphy bed option'],url:'/home/#models'},
+  {id:'captain',name:'Captain Edition',tag:'Ultimate',emoji:'🏆',price:'$211,900 incl. Trackman IO',dims:'27\'L x 20\'W exterior | 24\'L x 19\'W interior',desc:'The pinnacle of golf simulator luxury. Includes Trackman IO simulator package.',features:['Includes Trackman IO','Full luxury furnishings','Center accent lighting','Mini fridge','Premium everything'],url:'/home/#models'},
+];
+
+const DEALS=[
+  {name:'🎯 Free Quote & 3D Rendering',desc:'Get a detailed quote and virtual 3D walkthrough of your potential GolfShed — no commitment required. We\'ll show you exactly how it looks in your space.',cta:'Get Free Quote',url:'/home/#contact'},
+  {name:'📦 Ships Nationwide',desc:'GolfSheds are pre-fabricated and ship across the country. Basic installation and assembly included in price.',cta:'Learn More',url:'/home/#contact'},
+  {name:'🏌️ Simulator Packages Available',desc:'Compatible with Trackman, Uneekor, Foresight Sports, and Garmin. We\'ll help you choose the right launch monitor.',cta:'See Options',url:'/home/#models'},
+];
+
+const STORE={install:'Basic installation and assembly included',shipping:'Ships nationwide — larger models split into two sections for easy transport',financing:'Contact us for financing options',process:'Design → Deposit → Fabrication → Shipping → Installation'};
+
+let open_=false,loading=false,convo=[],answers={},dealIdx=0;
+const msgs=document.getElementById('gs-msgs');
+const ch=document.getElementById('gs-ch');
+const inp=document.getElementById('gs-inp');
+const send=document.getElementById('gs-send');
+
+const QUIZ=[
+  {id:'use',q:'What\'s your primary use for the GolfShed?',opts:[
+    {l:'🏠 Personal backyard golf',v:'personal'},
+    {l:'🤝 Entertaining & hosting',v:'entertaining'},
+    {l:'🏋️ Serious game improvement',v:'training'},
+    {l:'🎬 Theater & multi-use',v:'theater'},
+    {l:'💼 Commercial / business',v:'commercial'},
+  ]},
+  {id:'space',q:'How much outdoor space do you have available?',opts:[
+    {l:'📐 Compact — tight backyard',v:'compact'},
+    {l:'🌿 Medium — standard backyard',v:'medium'},
+    {l:'🏡 Large — plenty of room',v:'large'},
+    {l:'🔍 Not sure yet',v:'unsure'},
+  ]},
+  {id:'simulator',q:'Do you have a simulator in mind?',opts:[
+    {l:'📡 Yes — I know what I want',v:'have'},
+    {l:'🤔 Considering my options',v:'considering'},
+    {l:'❓ Need guidance on this',v:'need'},
+    {l:'⛳ GolfShed only — no simulator yet',v:'none'},
+  ]},
+  {id:'timeline',q:'What\'s your timeline?',opts:[
+    {l:'⚡ ASAP — ready to move',v:'asap'},
+    {l:'📅 This season',v:'season'},
+    {l:'🔭 Researching for now',v:'researching'},
+  ]},
+];
+
+function gsShow(){
+  open_=true;
+  document.getElementById('gs-btn').classList.add('open');
+  var t=document.getElementById('teaser');if(t)t.style.display='none';
+  document.getElementById('gs-box').classList.add('on');
+  document.getElementById('gs-veil').classList.add('on');
+  if(!msgs.children.length)startQuiz();
+  setTimeout(()=>inp.focus(),300);
+}
+function gsHide(){
+  open_=false;
+  document.getElementById('gs-btn').classList.remove('open');
+  document.getElementById('gs-box').classList.remove('on');
+  document.getElementById('gs-veil').classList.remove('on');
+}
+
+function startQuiz(){
+  convo=[];answers={};
+  typing(500,()=>{
+    botMsg('Welcome to GolfSheds ⛳\n\nI\'m **Ace**, your personal GolfShed advisor. Let me help you find the perfect model for your space and goals.');
+    setTimeout(()=>quiz(0),600);
+  });
+}
+
+function quiz(step){
+  if(step>=QUIZ.length){recommend();return;}
+  const q=QUIZ[step];
+  const prog='<div class="gs-qp">'+QUIZ.map((_,i)=>`<div class="gs-qd${i<step?' done':i===step?' active':''}"></div>`).join('')+'</div>';
+  typing(350,()=>{
+    botMsg(prog+q.q);
+    chips(q.opts.map(o=>({t:o.l,fn:()=>{noChips();answers[q.id]=o.v;userMsg(o.l);quiz(step+1);}})));
+  });
+}
+
+function recommend(){
+  const space=answers.space||'medium';
+  const use=answers.use||'personal';
+  let recs=[];
+  if(space==='compact')recs=[MODELS[0]];
+  else if(space==='large'||use==='commercial')recs=[MODELS[2],MODELS[3],MODELS[1]];
+  else recs=[MODELS[1],MODELS[0],MODELS[2]];
+
+  typing(600,()=>{
+    botMsg('Based on your answers, here are my top recommendations ⛳');
+    setTimeout(()=>{showCards(recs.slice(0,2));},300);
+    setTimeout(()=>{showDeal(DEALS[0]);},600);
+    setTimeout(()=>{
+      chips([
+        {t:'📋 See all models',fn:()=>{noChips();showCards(MODELS);}},
+        {t:'💰 Discuss financing',fn:()=>aiChat('Tell me about financing options')},
+        {t:'🏗️ How does installation work?',fn:()=>aiChat('How does the installation process work?')},
+        {t:'📡 Which simulator fits best?',fn:()=>aiChat('Help me choose the right simulator package')},
+      ]);
+    },900);
+  });
+}
+
+function showCards(models){
+  const cr=mk('div','gs-cards');
+  models.forEach(m=>{
+    const card=mk('div','gs-card');
+    card.innerHTML=`
+      <div class="gs-card-img">${m.emoji}</div>
+      <div class="gs-card-body">
+        <div class="gs-card-tag">${m.tag}</div>
+        <div class="gs-card-name">${m.name}</div>
+        <div class="gs-card-price">${m.price}</div>
+        <div class="gs-card-dims">${m.dims}</div>
+        <button class="gs-card-btn" onclick="requestQuote(this,'${m.name}')">Request Free Quote →</button>
+      </div>`;
+    cr.appendChild(card);
+  });
+  msgs.appendChild(botRow(cr));
+  scrollBot();
+}
+
+function requestQuote(btn,name){
+  btn.textContent='✓ Quote Requested!';
+  btn.classList.add('requested');
+  showLeadForm(name);
+}
+
+function showLeadForm(model){
+  const form=mk('div','gs-lead');
+  form.innerHTML=`
+    <div class="gs-lead-title">Get Your Free Quote</div>
+    <div class="gs-lead-sub">We'll send you detailed pricing, 3D renderings, and arrange a virtual walkthrough for the ${model}.</div>
+    <input id="lead-name" placeholder="Your name" />
+    <input id="lead-email" placeholder="Email address" type="email" />
+    <input id="lead-phone" placeholder="Phone number" type="tel" />
+    <button class="gs-lead-btn" onclick="submitLead('${model}',this)">Send My Quote Request →</button>`;
+  msgs.appendChild(botRow(form));
+  scrollBot();
+}
+
+function submitLead(model,btn){
+  const name=document.getElementById('lead-name').value.trim();
+  const email=document.getElementById('lead-email').value.trim();
+  if(!name||!email){btn.textContent='Please fill in name & email';return;}
+  btn.textContent='✓ Request Sent!';
+  btn.style.background='var(--gold)';btn.style.color='var(--black)';
+  setTimeout(()=>{
+    botMsg(`Perfect, ${name}! 🎉 We'll send detailed pricing and 3D renderings for the **${model}** to ${email}.\n\nOur team typically follows up within 24 hours. In the meantime, feel free to ask me anything else about GolfSheds!`);
+    setTimeout(()=>{
+      chips([
+        {t:'🔧 Available upgrades',fn:()=>aiChat('What upgrades and add-ons are available?')},
+        {t:'📍 Visit the showroom',fn:()=>aiChat('Where is the showroom located?')},
+        {t:'🔁 Compare models',fn:()=>{noChips();showCards(MODELS);}},
+      ]);
+    },500);
+  },400);
+}
+
+function showDeal(deal){
+  const d=mk('div','gs-deal');
+  d.innerHTML=`<div class="gs-deal-name">${deal.name}</div><div class="gs-deal-desc">${deal.desc}</div><button class="gs-deal-btn" onclick="window.open('${SITE}${deal.url}','_blank')">${deal.cta} →</button>`;
+  msgs.appendChild(botRow(d));scrollBot();
+}
+
+function sysprompt(){
+  const ml=MODELS.map(m=>`${m.name} (${m.price}) — ${m.desc} | Dims: ${m.dims}`).join('\n');
+  return `You are Ace, a friendly and knowledgeable GolfShed advisor for GolfSheds (golfsheds.com), a company that builds luxury outdoor golf simulator enclosures.
+
+ABOUT GOLFSHEDS:
+- Pre-fabricated luxury golf simulator buildings for outdoor use
+- Ships nationwide, installation included
+- Compatible with Trackman, Uneekor, Foresight Sports, Garmin simulators
+- Showroom: 644 N State St, Orem, UT 84057
+- Process: Design & deposit → Fabrication → Shipping → Installation
+
+OUR MODELS:
+${ml}
+
+UPGRADES AVAILABLE: Furnishings, blackout shades, rooftop deck (Platinum), Murphy bed, theater package, mini bar, A/C & heating, custom cabinetry
+
+INSTALLATION: Basic installation and assembly included. Larger models ship in two sections assembled on site. Usually requires an on-site crane. We assist with permitting and can customize to meet local regulations.
+
+YOUR ROLE:
+- Help visitors find the right GolfShed model for their space, budget, and goals
+- Qualify leads by understanding their space, timeline, and simulator needs
+- Always encourage requesting a free quote and 3D rendering as the easiest next step
+- Mention the showroom in Orem, UT for local visitors
+- Be enthusiastic about the product — this is a premium, life-changing purchase
+- Keep responses concise — 2-4 sentences max
+- Never quote exact final prices as they vary based on customization and shipping
+
+LEAD GENERATION: Your #1 goal is to get visitors to request a free quote. Use phrases like "our team will send you detailed pricing and 3D renderings" and "capacity is limited."`;
+}
+
+async function aiChat(text){
+  if(!text.trim()||loading)return;
+  userMsg(text);noChips();inp.value='';loading=true;send.disabled=true;
+  const t=showTyping();
+  try{
+    convo.push({role:'user',content:text});
+    const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:500,system:sysprompt(),messages:convo.slice(-10)})});
+    if(!r.ok)throw new Error(r.status);
+    const d=await r.json();
+    const reply=d.content?.[0]?.text||'';
+    convo.push({role:'assistant',content:reply});
+    t.remove();botMsg(reply);
+    chips([
+      {t:'📋 View models',fn:()=>{noChips();showCards(MODELS);}},
+      {t:'🎯 Get free quote',fn:()=>{noChips();showLeadForm('GolfShed');}},
+      {t:'📍 Visit showroom',fn:()=>aiChat('Where is the showroom?')},
+    ]);
+  }catch(e){
+    t.remove();botMsg('I\'m having trouble connecting. Visit golfsheds.com or call us directly — we\'d love to help you find your perfect GolfShed!');
+  }finally{loading=false;send.disabled=false;}
+}
+
+send.addEventListener('click',()=>aiChat(inp.value.trim()));
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();aiChat(inp.value.trim());}});
+
+function mk(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
+function botRow(c){const r=mk('div','gs-msg b');const a=mk('div','gs-mav');a.textContent='⛳';r.appendChild(a);const w=mk('div');w.style.cssText='display:flex;flex-direction:column;gap:6px;max-width:100%;min-width:0;';w.appendChild(c);r.appendChild(w);return r;}
+function botMsg(text){const b=mk('div','gs-mb');b.style.maxWidth='100%';b.innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');msgs.appendChild(botRow(b));scrollBot();return b;}
+function userMsg(text){const r=mk('div','gs-msg u');const b=mk('div','gs-mb');b.textContent=text;r.appendChild(b);msgs.appendChild(r);scrollBot();}
+function showTyping(){const r=mk('div','gs-msg b');const a=mk('div','gs-mav');a.textContent='⛳';const b=mk('div','gs-mb');b.innerHTML='<div class="gs-tdots"><span></span><span></span><span></span></div>';r.appendChild(a);r.appendChild(b);msgs.appendChild(r);scrollBot();return r;}
+function typing(ms,cb){const t=showTyping();setTimeout(()=>{t.remove();cb();},ms);}
+function chips(list){ch.innerHTML='';list.forEach(({t,fn})=>{const b=mk('button','gs-chip');b.textContent=t;b.addEventListener('click',fn);ch.appendChild(b);});document.getElementById('gs-cw').scrollLeft=0;}
+function noChips(){ch.innerHTML='';}
+function scrollBot(){requestAnimationFrame(()=>{msgs.scrollTop=msgs.scrollHeight;});}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&open_)gsHide();});
+</script>
+</body>
+</html>
